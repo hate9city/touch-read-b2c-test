@@ -1,0 +1,55 @@
+{
+  "name": "client",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.6.4",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^13.5.0",
+    "@types/jest": "^27.5.2",
+    "@types/node": "^16.18.126",
+    "@types/pdfjs-dist": "^2.10.377",
+    "@types/react": "^19.1.9",
+    "@types/react-dom": "^19.1.7",
+    "howler": "^2.2.4",
+    "pdfjs-dist": "2.16.105",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "react-pageflip": "^2.0.3",
+    "react-router-dom": "^7.7.1",
+    "react-scripts": "5.0.1",
+    "typescript": "^4.9.5",
+    "wavesurfer.js": "^7.10.1",
+    "web-vitals": "^2.1.4"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "devDependencies": {
+    "@types/howler": "^2.2.12",
+    "@types/react-router-dom": "^5.3.3",
+    "@types/wicg-file-system-access": "^2023.10.6"
+  }
+}
