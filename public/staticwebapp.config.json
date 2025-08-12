@@ -1,0 +1,19 @@
+{
+  "routes": [
+    { "route": "/login.html", "allowedRoles": ["anonymous"] },
+    { "route": "/unauthorized.html", "allowedRoles": ["anonymous"] },
+    { "route": "/api/*", "allowedRoles": ["anonymous"] },
+    { "route": "/*", "rewrite": "/index.html", "allowedRoles": ["approved"] }
+  ],
+  "responseOverrides": {
+    "401": { "redirect": "/login.html", "statusCode": 302 },
+    "403": { "redirect": "/unauthorized.html", "statusCode": 302 }
+  },
+  "globalHeaders": {
+    "X-Frame-Options": "DENY",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "same-origin"
+  }
+}
+
+
