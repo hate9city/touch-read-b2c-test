@@ -17,3 +17,11 @@ code {
 * {
   box-sizing: border-box;
 }
+
+/* Hide the page-flip corner hover effect */
+.stf__corner--top-left,
+.stf__corner--top-right,
+.stf__corner--bottom-left,
+.stf__corner--bottom-right {
+  display: none !important;
+}
