@@ -2,6 +2,9 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { Link } from 'react-router-dom';
 import * as pdfjsLib from 'pdfjs-dist';
 
+// 设置PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+
 // 封面缓存
 const coverCache = new Map<string, string>();
 
@@ -31,9 +34,21 @@ const BookCover = React.memo(({ book }: { book: any }) => {
             const pdfUrl = `${process.env.PUBLIC_URL}/books/${book.pdf}`;
             console.log(`PDF URL: ${pdfUrl}`);
             
-            const pdf = await pdfjsLib.getDocument(pdfUrl).promise;
+            // 检查PDF文件是否存在
+            const response = await fetch(pdfUrl, { method: 'HEAD' });
+            if (!response.ok) {
+                throw new Error(`PDF文件不存在: ${response.status} ${response.statusText}`);
+            }
+            
+            const pdf = await pdfjsLib.getDocument({
+                url: pdfUrl,
+                cMapUrl: 'https://unpkg.com/pdfjs-dist@3.11.174/cmaps/',
+                cMapPacked: true,
+            }).promise;
             
             if (abortControllerRef.current?.signal.aborted) return;
+            
+            console.log(`PDF加载成功，页数: ${pdf.numPages}`);
             
             const page = await pdf.getPage(1);
             const canvas = canvasRef.current;
@@ -49,6 +64,7 @@ const BookCover = React.memo(({ book }: { book: any }) => {
             const context = canvas.getContext('2d');
             if (!context) return;
 
+            console.log(`开始渲染封面到canvas: ${viewport.width}x${viewport.height}`);
             await page.render({ canvasContext: context, viewport }).promise;
             
             if (!abortControllerRef.current?.signal.aborted) {
@@ -61,6 +77,7 @@ const BookCover = React.memo(({ book }: { book: any }) => {
         } catch (error) {
             if (!abortControllerRef.current?.signal.aborted) {
                 console.error(`Failed to generate cover for ${book.title}:`, error);
+                console.error('错误详情:', error);
             }
         } finally {
             setIsLoading(false);
