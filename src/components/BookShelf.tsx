@@ -19,7 +19,7 @@ const BookCover = React.memo(({ book }: { book: any }) => {
     const abortControllerRef = useRef<AbortController | null>(null);
 
     const generateCover = useCallback(async () => {
-        if (coverUrl || !book.pdf || isLoading) {
+        if (!book.pdf || isLoading) {
             return;
         }
 
@@ -27,7 +27,10 @@ const BookCover = React.memo(({ book }: { book: any }) => {
         abortControllerRef.current = new AbortController();
 
         try {
+            console.log(`开始生成封面: ${book.title}`);
             const pdfUrl = `${process.env.PUBLIC_URL}/books/${book.pdf}`;
+            console.log(`PDF URL: ${pdfUrl}`);
+            
             const pdf = await pdfjsLib.getDocument(pdfUrl).promise;
             
             if (abortControllerRef.current?.signal.aborted) return;
@@ -49,7 +52,8 @@ const BookCover = React.memo(({ book }: { book: any }) => {
             await page.render({ canvasContext: context, viewport }).promise;
             
             if (!abortControllerRef.current?.signal.aborted) {
-                const dataUrl = canvas.toDataURL('image/jpeg', 0.7); // 降低质量以减小文件大小
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+                console.log(`封面生成成功: ${book.title}`);
                 setCoverUrl(dataUrl);
                 coverCache.set(book.id, dataUrl);
             }
@@ -61,10 +65,10 @@ const BookCover = React.memo(({ book }: { book: any }) => {
         } finally {
             setIsLoading(false);
         }
-    }, [book, coverUrl, isLoading]);
+    }, [book.pdf, book.title, isLoading]);
 
     useEffect(() => {
-        if (!coverUrl && book.pdf) {
+        if (!coverUrl && book.pdf && !isLoading) {
             // 延迟加载封面，避免阻塞初始渲染
             const timer = setTimeout(generateCover, 100);
             return () => {
@@ -72,7 +76,7 @@ const BookCover = React.memo(({ book }: { book: any }) => {
                 abortControllerRef.current?.abort();
             };
         }
-    }, [coverUrl, book.pdf, generateCover]);
+    }, [coverUrl, book.pdf, isLoading, generateCover]);
 
     useEffect(() => {
         return () => {
