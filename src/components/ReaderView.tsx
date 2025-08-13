@@ -5,9 +5,6 @@ import { Howl } from 'howler';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
-// 简单的PDF缓存
-const pdfCache = new Map<string, pdfjsLib.PDFDocumentProxy>();
-
 const PdfPage = ({ pdf, pageNumber, width, height, shouldRender = true, hotspots, onHotspotClick, currentHotspot, isRepeatMode, repeatStartHotspot, repeatEndHotspot, isRepeating }: { 
     pdf: pdfjsLib.PDFDocumentProxy, 
     pageNumber: number, 
@@ -28,7 +25,6 @@ const PdfPage = ({ pdf, pageNumber, width, height, shouldRender = true, hotspots
     const isRenderingRef = useRef(false);
     const renderIdRef = useRef(0);
     const [isRendered, setIsRendered] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
 
     useEffect(() => {
         if (!shouldRender || !pdf) {
@@ -40,10 +36,6 @@ const PdfPage = ({ pdf, pageNumber, width, height, shouldRender = true, hotspots
         const render = async () => {
             const canvas = canvasRef.current;
             if (!canvas || width <= 0 || height <= 0) return;
-
-            if (isRenderingRef.current) return;
-            isRenderingRef.current = true;
-            setIsLoading(true);
 
             try {
                 const page = await pdf.getPage(pageNumber);
@@ -73,9 +65,6 @@ const PdfPage = ({ pdf, pageNumber, width, height, shouldRender = true, hotspots
                 if (e.name !== 'RenderingCancelledException') {
                     console.error(`Render error on page ${pageNumber}:`, e);
                 }
-            } finally {
-                isRenderingRef.current = false;
-                setIsLoading(false);
             }
         };
         
@@ -97,31 +86,6 @@ const PdfPage = ({ pdf, pageNumber, width, height, shouldRender = true, hotspots
                     transition: 'opacity 0.3s ease'
                 }} 
             />
-            {isLoading && (
-                <div style={{
-                    position: 'absolute',
-                    top: '50%',
-                    left: '50%',
-                    transform: 'translate(-50%, -50%)',
-                    background: 'rgba(255,255,255,0.9)',
-                    padding: '1rem',
-                    borderRadius: '8px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    fontSize: '14px'
-                }}>
-                    <div style={{
-                        width: '20px',
-                        height: '20px',
-                        border: '2px solid #f3f3f3',
-                        borderTop: '2px solid #4a90e2',
-                        borderRadius: '50%',
-                        animation: 'spin 1s linear infinite'
-                    }}></div>
-                    <span>加载中...</span>
-                </div>
-            )}
             {isRendered && hotspots && hotspots
                 .filter(hotspot => hotspot.pageNumber === pageNumber)
                 .map(hotspot => {
@@ -365,18 +329,7 @@ const ReaderView: React.FC = () => {
             if (!bookId) return;
             
             try {
-                // 检查PDF缓存
-                const cachedPdf = pdfCache.get(bookId);
-                if (cachedPdf) {
-                    setPdfDoc(cachedPdf);
-                    setNumPages(cachedPdf.numPages);
-                    setCurrentPage(0);
-                    return;
-                }
-
-                const jsonResponse = await fetch(`${process.env.PUBLIC_URL}/books/${bookId}.json`, {
-                    headers: { 'Cache-Control': 'max-age=3600' }
-                });
+                const jsonResponse = await fetch(`${process.env.PUBLIC_URL}/books/${bookId}.json`);
                 if (!jsonResponse.ok) {
                     setError(`无法加载书籍数据: ${jsonResponse.statusText}`);
                     return;
@@ -391,31 +344,7 @@ const ReaderView: React.FC = () => {
                 }
                 
                 const pdfUrl = `${process.env.PUBLIC_URL}/books/${pdfFileName}`;
-                
-                // 检查PDF是否已缓存
-                const cachedPdfDoc = pdfCache.get(pdfUrl);
-                if (cachedPdfDoc) {
-                    setPdfDoc(cachedPdfDoc);
-                    setNumPages(cachedPdfDoc.numPages);
-                    setCurrentPage(0);
-                    pdfCache.set(bookId, cachedPdfDoc);
-                    return;
-                }
-                
                 const pdf = await pdfjsLib.getDocument(pdfUrl).promise;
-                
-                // 缓存PDF文档
-                pdfCache.set(pdfUrl, pdf);
-                pdfCache.set(bookId, pdf);
-                
-                // 限制缓存大小
-                if (pdfCache.size > 5) {
-                    const firstKey = pdfCache.keys().next().value;
-                    if (firstKey) {
-                        pdfCache.delete(firstKey);
-                    }
-                }
-                
                 setPdfDoc(pdf);
                 setNumPages(pdf.numPages);
                 setCurrentPage(0);
@@ -1060,20 +989,5 @@ const ReaderView: React.FC = () => {
         </div>
     );
 };
-
-// 添加CSS动画
-const style = document.createElement('style');
-style.textContent = `
-    @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-    @keyframes pulse {
-        0% { opacity: 0.7; }
-        50% { opacity: 1; }
-        100% { opacity: 0.7; }
-    }
-`;
-document.head.appendChild(style);
 
 export default ReaderView;
