@@ -109,18 +109,22 @@
         try {
           showLoading('login-btn', 'login-spinner');
           
-          // 检查是否有缓存的认证信息
-          const cached = sessionStorage.getItem('auth_cache');
-          if (cached) {
-            const data = JSON.parse(cached);
-            const now = Date.now();
-            // 缓存5分钟有效
-            if (now - data.timestamp < 5 * 60 * 1000) {
-              isLoggedIn = data.isLoggedIn;
-              userEmail = data.userEmail;
-              userRoles = data.userRoles;
-              hideLoading('login-btn', 'login-spinner');
-              return;
+          // 在无痕模式下，跳过缓存检查
+          const isIncognito = !window.localStorage || !window.sessionStorage;
+          if (!isIncognito) {
+            // 检查是否有缓存的认证信息
+            const cached = sessionStorage.getItem('auth_cache');
+            if (cached) {
+              const data = JSON.parse(cached);
+              const now = Date.now();
+              // 缓存5分钟有效
+              if (now - data.timestamp < 5 * 60 * 1000) {
+                isLoggedIn = data.isLoggedIn;
+                userEmail = data.userEmail;
+                userRoles = data.userRoles;
+                hideLoading('login-btn', 'login-spinner');
+                return;
+              }
             }
           }
 

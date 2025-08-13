@@ -2,14 +2,14 @@
   "routes": [
     { 
       "route": "/login.html", 
-      "allowedRoles": ["anonymous"],
+      "allowedRoles": ["anonymous", "authenticated"],
       "headers": {
         "Cache-Control": "public, max-age=300"
       }
     },
     { 
       "route": "/unauthorized.html", 
-      "allowedRoles": ["anonymous"],
+      "allowedRoles": ["anonymous", "authenticated"],
       "headers": {
         "Cache-Control": "public, max-age=300"
       }
