@@ -3,5 +3,5 @@
   "formEndpoint": "",
   "turnstileSiteKey": "",
   "turnstileVerifyEndpoint": "",
-  "loginProvider": "aad"
+  "loginProvider": "b2c"
 }
