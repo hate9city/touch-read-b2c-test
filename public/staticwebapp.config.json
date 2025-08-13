@@ -1,9 +1,42 @@
 {
   "routes": [
-    { "route": "/login.html", "allowedRoles": ["anonymous"] },
-    { "route": "/unauthorized.html", "allowedRoles": ["anonymous"] },
-    { "route": "/api/*", "allowedRoles": ["anonymous"] },
-    { "route": "/*", "allowedRoles": ["approved"] }
+    { 
+      "route": "/login.html", 
+      "allowedRoles": ["anonymous"],
+      "headers": {
+        "Cache-Control": "public, max-age=300"
+      }
+    },
+    { 
+      "route": "/unauthorized.html", 
+      "allowedRoles": ["anonymous"],
+      "headers": {
+        "Cache-Control": "public, max-age=300"
+      }
+    },
+    { 
+      "route": "/api/*", 
+      "allowedRoles": ["anonymous"] 
+    },
+    { 
+      "route": "/static/*",
+      "headers": {
+        "Cache-Control": "public, max-age=31536000"
+      }
+    },
+    { 
+      "route": "/books/*",
+      "headers": {
+        "Cache-Control": "public, max-age=3600"
+      }
+    },
+    { 
+      "route": "/*", 
+      "allowedRoles": ["approved"],
+      "headers": {
+        "Cache-Control": "no-cache"
+      }
+    }
   ],
   "navigationFallback": {
     "rewrite": "/index.html",
@@ -16,12 +49,19 @@
       "/favicon.ico",
       "/manifest.json",
       "/logo192.png",
-      "/logo512.png"
+      "/logo512.png",
+      "/.auth/*"
     ]
   },
   "responseOverrides": {
-    "401": { "redirect": "/login.html", "statusCode": 302 },
-    "403": { "redirect": "/unauthorized.html", "statusCode": 302 }
+    "401": { 
+      "redirect": "/login.html", 
+      "statusCode": 302 
+    },
+    "403": { 
+      "redirect": "/unauthorized.html", 
+      "statusCode": 302 
+    }
   },
   "globalHeaders": {
     "X-Frame-Options": "DENY",

@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>登录 / 注册</title>
-      <style>
+    <style>
       body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji'; background:#f5f6f7; margin:0; }
       .card { max-width: 420px; margin: 12vh auto; background:#fff; border-radius: 12px; padding: 24px; box-shadow: 0 8px 30px rgba(0,0,0,0.08); }
       h1 { font-size: 20px; margin: 0 0 8px; }
@@ -16,7 +16,10 @@
       .divider:before { left:0; } .divider:after { right:0; }
       input { width:100%; padding:10px 12px; border:1px solid #ddd; border-radius:8px; margin-top:6px; }
       label { display:block; font-size:12px; color:#555; margin-top:10px; }
-        .hidden-honeypot { position: absolute; left: -9999px; top: -9999px; height: 0; width: 0; overflow: hidden; }
+      .hidden-honeypot { position: absolute; left: -9999px; top: -9999px; height: 0; width: 0; overflow: hidden; }
+      .loading { opacity: 0.6; pointer-events: none; }
+      .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #f3f3f3; border-top: 2px solid #4a90e2; border-radius: 50%; animation: spin 1s linear infinite; margin-right: 8px; }
+      @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
   </head>
   <body>
@@ -25,7 +28,10 @@
       <p>登录后提交申请，联系管理员审批通过后即可享用点读。</p>
 
       <div id="auth-block">
-        <button class="btn" style="background:#4a90e2; margin-top:12px;" onclick="login()">使用邮箱登录</button>
+        <button class="btn" style="background:#4a90e2; margin-top:12px;" onclick="login()" id="login-btn">
+          <span class="spinner" id="login-spinner" style="display:none;"></span>
+          使用邮箱登录
+        </button>
         <div id="auth-info" style="display:none; font-size:12px; color:#666; margin-top:8px;"></div>
       </div>
 
@@ -44,7 +50,10 @@
               <input id="hp_access" type="text" autocomplete="off" />
             </label>
           </div>
-          <button class="btn" style="background:#4a90e2; margin-top:12px;">提交注册申请</button>
+          <button class="btn" style="background:#4a90e2; margin-top:12px;" id="submit-btn">
+            <span class="spinner" id="submit-spinner" style="display:none;"></span>
+            提交注册申请
+          </button>
         </form>
         </div>
 
@@ -60,64 +69,131 @@
     </div>
 
     <script>
-      let externalFormEndpoint = '';
-      let embedUrl = '';
+      // 内联配置，减少网络请求
+      const CONFIG = {
+        loginProvider: 'aad',
+        formEndpoint: '',
+        embedUrl: ''
+      };
+      
       let isLoggedIn = false;
-      let loginProvider = 'aad';
       let userEmail = '';
       let userRoles = [];
-      let lastSubmitAt = 0; // 节流：两次提交至少间隔 10 秒
-      const DAILY_LIMIT = 5; // 本地防护：同一浏览器每天最多提交 5 次
-      const MIN_FORM_TIME_MS = 3000; // 最短停留时间：3 秒
+      let lastSubmitAt = 0;
+      const DAILY_LIMIT = 5;
+      const MIN_FORM_TIME_MS = 3000;
       let authFormShownAt = Date.now();
 
+      // 显示加载状态
+      function showLoading(buttonId, spinnerId) {
+        const btn = document.getElementById(buttonId);
+        const spinner = document.getElementById(spinnerId);
+        if (btn && spinner) {
+          btn.classList.add('loading');
+          spinner.style.display = 'inline-block';
+        }
+      }
+
+      // 隐藏加载状态
+      function hideLoading(buttonId, spinnerId) {
+        const btn = document.getElementById(buttonId);
+        const spinner = document.getElementById(spinnerId);
+        if (btn && spinner) {
+          btn.classList.remove('loading');
+          spinner.style.display = 'none';
+        }
+      }
+
+      // 优化的认证检查，带缓存
       async function loadAuth() {
         try {
-          const res = await fetch('/.auth/me', { credentials: 'include' });
+          showLoading('login-btn', 'login-spinner');
+          
+          // 检查是否有缓存的认证信息
+          const cached = sessionStorage.getItem('auth_cache');
+          if (cached) {
+            const data = JSON.parse(cached);
+            const now = Date.now();
+            // 缓存5分钟有效
+            if (now - data.timestamp < 5 * 60 * 1000) {
+              isLoggedIn = data.isLoggedIn;
+              userEmail = data.userEmail;
+              userRoles = data.userRoles;
+              hideLoading('login-btn', 'login-spinner');
+              return;
+            }
+          }
+
+          const res = await fetch('/.auth/me', { 
+            credentials: 'include',
+            headers: { 'Cache-Control': 'no-cache' }
+          });
+          
           if (!res.ok) {
-            isLoggedIn = false; userEmail = ''; userRoles = [];
-            return;
-          }
-          const data = await res.json();
-          const p = (data && data.clientPrincipal) || null;
-          if (p) {
-            isLoggedIn = true;
-            userEmail = p.userDetails || '';
-            userRoles = p.userRoles || [];
+            isLoggedIn = false; 
+            userEmail = ''; 
+            userRoles = [];
           } else {
-            isLoggedIn = false; userEmail = ''; userRoles = [];
+            const data = await res.json();
+            const p = (data && data.clientPrincipal) || null;
+            if (p) {
+              isLoggedIn = true;
+              userEmail = p.userDetails || '';
+              userRoles = p.userRoles || [];
+            } else {
+              isLoggedIn = false; 
+              userEmail = ''; 
+              userRoles = [];
+            }
           }
-        } catch {
-          isLoggedIn = false; userEmail = ''; userRoles = [];
+
+          // 缓存认证信息
+          sessionStorage.setItem('auth_cache', JSON.stringify({
+            isLoggedIn,
+            userEmail,
+            userRoles,
+            timestamp: Date.now()
+          }));
+
+        } catch (err) {
+          console.warn('Auth check failed:', err);
+          isLoggedIn = false; 
+          userEmail = ''; 
+          userRoles = [];
+        } finally {
+          hideLoading('login-btn', 'login-spinner');
         }
       }
 
       async function renderUI() {
-        await loadAuth();
         const authBlock = document.getElementById('auth-block');
         const postLogin = document.getElementById('post-login');
-        // 登录状态提示与跳转
         const info = document.getElementById('auth-info');
+        
         if (isLoggedIn) {
           const hasApproved = Array.isArray(userRoles) && userRoles.includes('approved');
           info.style.display = 'block';
-          info.textContent = hasApproved ? `已登录：${userEmail}（已获批，即将进入）` : `已登录：${userEmail}（未获批，提交申请后等待管理员审批）`;
+          info.textContent = hasApproved ? 
+            `已登录：${userEmail}（已获批，即将进入）` : 
+            `已登录：${userEmail}（未获批，提交申请后等待管理员审批）`;
+          
           if (hasApproved) {
-            setTimeout(() => { window.location.href = '/#/'; }, 800);
+            // 清除缓存，确保下次获取最新状态
+            sessionStorage.removeItem('auth_cache');
+            setTimeout(() => { window.location.href = '/#/'; }, 500);
           }
         } else {
           info.style.display = 'none';
         }
 
-        // 登录按钮始终可见
         authBlock.style.display = 'block';
-        // 申请表单始终展示（嵌入或本地）
         postLogin.style.display = 'block';
-        if (embedUrl) {
+        
+        if (CONFIG.embedUrl) {
           document.getElementById('local-form-block').style.display = 'none';
           document.getElementById('embed-container').style.display = 'block';
           const frame = document.getElementById('embed-frame');
-          if (frame && !frame.src) frame.src = embedUrl;
+          if (frame && !frame.src) frame.src = CONFIG.embedUrl;
         } else {
           document.getElementById('local-form-block').style.display = 'block';
           document.getElementById('embed-container').style.display = 'none';
@@ -125,35 +201,28 @@
       }
 
       function login() {
-        window.location.href = `/.auth/login/${loginProvider}`;
+        // 清除缓存，确保登录后获取最新状态
+        sessionStorage.removeItem('auth_cache');
+        window.location.href = `/.auth/login/${CONFIG.loginProvider}`;
       }
 
-      fetch('/form-config.json')
-        .then(r => r.ok ? r.json() : { formEndpoint: '', embedUrl: '' })
-        .then(cfg => {
-          externalFormEndpoint = (cfg && cfg.formEndpoint) || '';
-          embedUrl = (cfg && cfg.embedUrl) || '';
-          loginProvider = (cfg && cfg.loginProvider) || 'aad';
-          renderUI();
-        })
-        .catch(() => { renderUI(); });
-
+      // 优化的表单提交
       async function requestAccess(e) {
         e.preventDefault();
-        // 允许未登录也可提交申请
+        
         const hp = (document.getElementById('hp_access') || {}).value || '';
-        if (hp) { // 蜜罐触发
+        if (hp) {
           alert('提交异常');
           return;
         }
+        
         const now = Date.now();
-        if (now - lastSubmitAt < 10000) { // 10 秒节流
+        if (now - lastSubmitAt < 10000) {
           alert('操作过于频繁，请稍后重试');
           return;
         }
         lastSubmitAt = now;
 
-        // 本地每日上限（按浏览器本地存储计数）
         const todayKey = 'access_submit_' + new Date().toISOString().slice(0,10);
         const used = parseInt(localStorage.getItem(todayKey) || '0', 10);
         if (used >= DAILY_LIMIT) {
@@ -163,26 +232,26 @@
 
         const email = (document.getElementById('email') || {}).value;
         const note = (document.getElementById('note') || {}).value;
+        
+        showLoading('submit-btn', 'submit-spinner');
+        
         try {
-          // 优先使用外部表单服务
           let resp;
-          if (externalFormEndpoint) {
-            // Formspree 等传统表单接口通常接收 application/x-www-form-urlencoded 或 JSON
-            // 这里用标准表单编码，兼容性更强
+          if (CONFIG.formEndpoint) {
             const form = new FormData();
             form.append('email', email);
             form.append('note', note);
             form.append('_subject', '点读书访问申请');
             form.append('source', 'login.html');
-            resp = await fetch(externalFormEndpoint, { method: 'POST', body: form });
+            resp = await fetch(CONFIG.formEndpoint, { method: 'POST', body: form });
           } else {
-            // 将申请发送至自建 API（如 Azure Functions）
             resp = await fetch('/api/register', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ email, note, ts: Date.now() })
             });
           }
+          
           if (resp.ok) {
             localStorage.setItem(todayKey, String(used + 1));
             alert('已提交申请，请等待管理员审批。');
@@ -191,13 +260,18 @@
           }
         } catch (err) {
           alert('网络错误，请稍后重试。');
+        } finally {
+          hideLoading('submit-btn', 'submit-spinner');
         }
       }
 
-      // 记录表单渲染时间
-      window.addEventListener('load', () => { authFormShownAt = Date.now(); });
+      // 页面加载时立即开始认证检查
+      window.addEventListener('load', () => { 
+        authFormShownAt = Date.now(); 
+        loadAuth().then(renderUI);
+      });
     </script>
   </body>
-  </html>
+</html>
 
 
