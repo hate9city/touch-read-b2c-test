@@ -429,6 +429,9 @@ const ReaderView: React.FC = () => {
                     
                     await Promise.all(audioLoadPromises);
                     
+                    console.log('音频加载完成，Howl实例:', Object.keys(newHowlInstances));
+                    console.log('音频文件:', Object.keys(newAudioFiles));
+                    
                     setHowlInstances(newHowlInstances);
                     setAudioFiles(newAudioFiles);
                 }
@@ -454,7 +457,12 @@ const ReaderView: React.FC = () => {
     };
 
     const playHotspotAudio = (hotspot: any) => {
-        if (!hotspot.id) return;
+        console.log('点击热点:', hotspot);
+        
+        if (!hotspot.id) {
+            console.warn('热点没有ID:', hotspot);
+            return;
+        }
         
         const audioFileName = hotspot.audioFile || bookData?.audioFile;
         if (!audioFileName) {
@@ -462,17 +470,28 @@ const ReaderView: React.FC = () => {
             return;
         }
         
+        console.log('音频文件名:', audioFileName);
+        console.log('可用的Howl实例:', Object.keys(howlInstances));
+        
         const howl = howlInstances[audioFileName];
         if (!howl) {
             console.warn(`未找到音频文件 ${audioFileName} 的 Howl 实例`);
+            console.log('当前howlInstances:', howlInstances);
             return;
         }
 
+        console.log('找到Howl实例，准备播放热点ID:', hotspot.id);
+        
         Object.values(howlInstances).forEach(h => h.stop());
 
         setCurrentHotspot(hotspot);
 
-        howl.play(hotspot.id);
+        try {
+            howl.play(hotspot.id);
+            console.log('播放命令已发送');
+        } catch (error) {
+            console.error('播放失败:', error);
+        }
     };
 
     const handleHotspotClick = (hotspot: any, event: React.MouseEvent) => {
